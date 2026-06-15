@@ -53,14 +53,12 @@ describe('CardGenerator', () => {
   })
 
   it('rejects files larger than 10MB', async () => {
-    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {})
     render(<CardGenerator templateType="attendee" />)
     const bigFile = new File(['x'], 'big.jpg', { type: 'image/jpeg' })
     Object.defineProperty(bigFile, 'size', { value: 11 * 1024 * 1024 })
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, bigFile)
-    expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('10MB'))
-    alertSpy.mockRestore()
+    expect(await screen.findByText(/trop lourde/i)).toBeInTheDocument()
   })
 
   it('shows download button only after generation', async () => {

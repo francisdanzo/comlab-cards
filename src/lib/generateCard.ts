@@ -43,11 +43,12 @@ export function wrapText(
   return lines
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+function loadImage(src: string, crossOrigin = false): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
+    if (crossOrigin) img.crossOrigin = 'anonymous'
     img.onload = () => resolve(img)
-    img.onerror = reject
+    img.onerror = () => reject(new Error(`Impossible de charger l'image : ${src}`))
     img.src = src
   })
 }
@@ -55,7 +56,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 export async function generateCard(params: GenerateCardParams): Promise<string> {
   const { name, photo, templateType } = params
   const config = TEMPLATES[templateType]
-  const templateImg = await loadImage(config.templatePath)
+  const templateImg = await loadImage(config.templatePath, true)
 
   const canvas = document.createElement('canvas')
   canvas.width = config.canvasSize.width
