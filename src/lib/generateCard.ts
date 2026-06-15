@@ -2,9 +2,8 @@ import { TEMPLATES } from '@/config/templates'
 
 export interface GenerateCardParams {
   name: string
-  domain: string
   photo: File
-  templateType: 'attendee' | 'speaker' | 'volunteer'
+  templateType: 'attendee' | 'speaker' | 'volunteer' | 'staff'
 }
 
 export function centerCropParams(
@@ -54,14 +53,19 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 export async function generateCard(params: GenerateCardParams): Promise<string> {
-  const { name, domain, photo, templateType } = params
+  const { name, photo, templateType } = params
   const config = TEMPLATES[templateType]
+  const templateImg = await loadImage(config.templatePath)
 
   const canvas = document.createElement('canvas')
-  canvas.width = 1080
-  canvas.height = 1080
+  canvas.width = config.canvasSize.width
+  canvas.height = config.canvasSize.height
   const ctx = canvas.getContext('2d')!
 
+  // Draw template first — it is fully opaque (no transparency in photo zone)
+  ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height)
+
+  // Draw photo on top of the template, clipped to the photo zone shape
   const photoUrl = URL.createObjectURL(photo)
   const photoImg = await loadImage(photoUrl)
   URL.revokeObjectURL(photoUrl)
@@ -93,9 +97,6 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
   )
   ctx.restore()
 
-  const templateImg = await loadImage(config.templatePath)
-  ctx.drawImage(templateImg, 0, 0, 1080, 1080)
-
   const nameConf = config.nameText
   ctx.font = `bold ${nameConf.fontSize}px ${nameConf.fontFamily}`
   ctx.fillStyle = nameConf.color
@@ -106,19 +107,10 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
     name,
     nameConf.maxWidth
   )
-  const lineHeight = nameConf.fontSize * 1.25
+  const lineHeight = nameConf.fontSize * 1.08
   nameLines.forEach((line, i) => {
     ctx.fillText(line, nameConf.x, nameConf.y + i * lineHeight)
   })
-
-  const domConf = config.domainText
-  ctx.font = `${domConf.fontSize}px ${domConf.fontFamily}`
-  ctx.fillStyle = domConf.color
-  ctx.textAlign = domConf.align
-  ctx.textBaseline = 'top'
-  // Y is computed dynamically so domain never overlaps a wrapped name
-  const domainY = nameConf.y + nameLines.length * lineHeight + 16
-  ctx.fillText(domain, domConf.x, domainY)
 
   return canvas.toDataURL('image/png')
 }

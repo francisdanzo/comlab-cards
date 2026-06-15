@@ -1,5 +1,9 @@
 export interface TemplateConfig {
   templatePath: string
+  canvasSize: {
+    width: number
+    height: number
+  }
   photoZone: {
     x: number
     y: number
@@ -27,47 +31,65 @@ export interface TemplateConfig {
   }
 }
 
-export const TEMPLATES: Record<'attendee' | 'speaker' | 'volunteer', TemplateConfig> = {
+export const TEMPLATES: Record<'attendee' | 'speaker' | 'volunteer' | 'staff', TemplateConfig> = {
   attendee: {
     templatePath: '/templates/attendee.png',
-    photoZone: { x: 90, y: 90, width: 400, height: 400, shape: 'circle' },
+    canvasSize: { width: 4096, height: 4096 },
+    photoZone: { x: 1320, y: 520, width: 1830, height: 1830, shape: 'circle' },
     nameText: {
-      x: 540, y: 560, fontSize: 52,
-      fontFamily: 'Inter, sans-serif', color: '#FFFFFF',
-      align: 'center', maxWidth: 900,
+      x: 2670, y: 2391, fontSize: 190,
+      fontFamily: 'Arial, sans-serif', color: '#0D2547',
+      align: 'center', maxWidth: 1680,
     },
     domainText: {
-      x: 540, y: 640, fontSize: 32,
-      fontFamily: 'Inter, sans-serif', color: '#E0E0E0',
-      align: 'center', maxWidth: 900,
+      x: 2048, y: 2905, fontSize: 98,
+      fontFamily: 'Arial, sans-serif', color: '#4B5563',
+      align: 'center', maxWidth: 1580,
     },
   },
   speaker: {
     templatePath: '/templates/speaker.png',
-    photoZone: { x: 90, y: 90, width: 400, height: 400, shape: 'circle' },
+    canvasSize: { width: 4096, height: 4096 },
+    photoZone: { x: 1320, y: 520, width: 1830, height: 1830, shape: 'circle' },
     nameText: {
-      x: 540, y: 560, fontSize: 52,
-      fontFamily: 'Inter, sans-serif', color: '#FFFFFF',
-      align: 'center', maxWidth: 900,
+      x: 2670, y: 2391, fontSize: 190,
+      fontFamily: 'Arial, sans-serif', color: '#0D2547',
+      align: 'center', maxWidth: 1680,
     },
     domainText: {
-      x: 540, y: 640, fontSize: 32,
-      fontFamily: 'Inter, sans-serif', color: '#E0E0E0',
-      align: 'center', maxWidth: 900,
+      x: 2048, y: 2905, fontSize: 98,
+      fontFamily: 'Arial, sans-serif', color: '#4B5563',
+      align: 'center', maxWidth: 1580,
     },
   },
   volunteer: {
     templatePath: '/templates/volunteer.png',
-    photoZone: { x: 90, y: 90, width: 400, height: 400, shape: 'circle' },
+    canvasSize: { width: 4096, height: 4096 },
+    photoZone: { x: 1320, y: 520, width: 1830, height: 1830, shape: 'circle' },
     nameText: {
-      x: 540, y: 560, fontSize: 52,
-      fontFamily: 'Inter, sans-serif', color: '#FFFFFF',
-      align: 'center', maxWidth: 900,
+      x: 2670, y: 2391, fontSize: 190,
+      fontFamily: 'Arial, sans-serif', color: '#0D2547',
+      align: 'center', maxWidth: 1680,
     },
     domainText: {
-      x: 540, y: 640, fontSize: 32,
-      fontFamily: 'Inter, sans-serif', color: '#E0E0E0',
-      align: 'center', maxWidth: 900,
+      x: 2048, y: 2905, fontSize: 98,
+      fontFamily: 'Arial, sans-serif', color: '#4B5563',
+      align: 'center', maxWidth: 1580,
+    },
+  },
+  staff: {
+    templatePath: '/templates/staff.png',
+    canvasSize: { width: 4096, height: 4096 },
+    photoZone: { x: 1320, y: 520, width: 1830, height: 1830, shape: 'circle' },
+    nameText: {
+      x: 2670, y: 2391, fontSize: 190,
+      fontFamily: 'Arial, sans-serif', color: '#0D2547',
+      align: 'center', maxWidth: 1680,
+    },
+    domainText: {
+      x: 2048, y: 2905, fontSize: 98,
+      fontFamily: 'Arial, sans-serif', color: '#4B5563',
+      align: 'center', maxWidth: 1580,
     },
   },
 }
