@@ -53,6 +53,28 @@ function loadImage(src: string, crossOrigin = false): Promise<HTMLImageElement> 
   })
 }
 
+// Shrinks fontSize until all wrapped lines fit within bandHeight and maxWidth.
+// Tries sizes from startSize down to minSize in steps of 4px.
+function fitText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  fontFamily: string,
+  maxWidth: number,
+  bandHeight: number,
+  startSize: number,
+  minSize = 55
+): { fontSize: number; lines: string[] } {
+  for (let size = startSize; size >= minSize; size -= 4) {
+    ctx.font = `bold ${size}px ${fontFamily}`
+    const lines = wrapText((t) => ctx.measureText(t).width, text, maxWidth)
+    const totalHeight = lines.length * size * 1.2
+    if (totalHeight <= bandHeight) return { fontSize: size, lines }
+  }
+  ctx.font = `bold ${minSize}px ${fontFamily}`
+  const lines = wrapText((t) => ctx.measureText(t).width, text, maxWidth)
+  return { fontSize: minSize, lines }
+}
+
 export async function generateCard(params: GenerateCardParams): Promise<string> {
   const { name, photo, templateType } = params
   const config = TEMPLATES[templateType]
@@ -98,21 +120,28 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
   )
   ctx.restore()
 
+  // Auto-fit font size so the name always fits in the band
   const nameConf = config.nameText
-  ctx.font = `bold ${nameConf.fontSize}px ${nameConf.fontFamily}`
+  const BAND_HEIGHT = 305 // pixels — measured from template (y=2330 to y=2635)
+  const { fontSize, lines } = fitText(
+    ctx,
+    name,
+    nameConf.fontFamily,
+    nameConf.maxWidth,
+    BAND_HEIGHT,
+    nameConf.fontSize
+  )
+
+  ctx.font = `bold ${fontSize}px ${nameConf.fontFamily}`
   ctx.fillStyle = nameConf.color
   ctx.textAlign = nameConf.align
   ctx.textBaseline = 'top'
-  const nameLines = wrapText(
-    (t) => ctx.measureText(t).width,
-    name,
-    nameConf.maxWidth
-  )
-  const lineHeight = nameConf.fontSize * 1.2
-  // nameConf.y is the band center — vertically center the text block around it
-  const totalHeight = nameLines.length * lineHeight
+
+  const lineHeight = fontSize * 1.2
+  const totalHeight = lines.length * lineHeight
+  // nameConf.y is band center — vertically center the text block
   const startY = nameConf.y - totalHeight / 2
-  nameLines.forEach((line, i) => {
+  lines.forEach((line, i) => {
     ctx.fillText(line, nameConf.x, startY + i * lineHeight)
   })
 
