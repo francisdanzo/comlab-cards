@@ -116,7 +116,9 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
   ctx.fillStyle = domConf.color
   ctx.textAlign = domConf.align
   ctx.textBaseline = 'top'
-  ctx.fillText(domain, domConf.x, domConf.y)
+  // Y is computed dynamically so domain never overlaps a wrapped name
+  const domainY = nameConf.y + nameLines.length * lineHeight + 16
+  ctx.fillText(domain, domConf.x, domainY)
 
   return canvas.toDataURL('image/png')
 }
