@@ -107,9 +107,12 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
     name,
     nameConf.maxWidth
   )
-  const lineHeight = nameConf.fontSize * 1.08
+  const lineHeight = nameConf.fontSize * 1.2
+  // nameConf.y is the band center — vertically center the text block around it
+  const totalHeight = nameLines.length * lineHeight
+  const startY = nameConf.y - totalHeight / 2
   nameLines.forEach((line, i) => {
-    ctx.fillText(line, nameConf.x, nameConf.y + i * lineHeight)
+    ctx.fillText(line, nameConf.x, startY + i * lineHeight)
   })
 
   return canvas.toDataURL('image/png')

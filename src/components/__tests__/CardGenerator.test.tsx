@@ -18,7 +18,7 @@ describe('CardGenerator', () => {
   it('renders form fields and generate button', () => {
     render(<CardGenerator templateType="attendee" />)
     expect(screen.getByPlaceholderText('Prénom Nom')).toBeInTheDocument()
-    expect(screen.getByText(/clique ou glisse/i)).toBeInTheDocument()
+    expect(screen.getByText(/glisse ta photo/i)).toBeInTheDocument()
     expect(screen.getByText(/générer/i)).toBeInTheDocument()
   })
 
