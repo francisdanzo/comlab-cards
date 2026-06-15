@@ -1,32 +1,32 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { generateCard } from '@/lib/generateCard'
-import { DOMAINS } from '@/config/domains'
 
 interface CardGeneratorProps {
-  templateType: 'attendee' | 'speaker' | 'volunteer'
+  templateType: 'attendee' | 'speaker' | 'volunteer' | 'staff'
 }
 
 export default function CardGenerator({ templateType }: CardGeneratorProps) {
   const [name, setName] = useState('')
-  const [domain, setDomain] = useState('')
-  const [customDomain, setCustomDomain] = useState('')
   const [photo, setPhoto] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const effectiveDomain = domain === 'Autre' ? customDomain : domain
+  const canGenerate = !!name.trim() && !!photo
 
-  useEffect(() => {
-    if (!name || !effectiveDomain || !photo) return
+  const handleGenerate = async () => {
+    if (!canGenerate || isGenerating) return
     setIsGenerating(true)
-    generateCard({ name, domain: effectiveDomain, photo, templateType })
-      .then(setPreviewUrl)
-      .finally(() => setIsGenerating(false))
-  }, [name, effectiveDomain, photo, templateType])
+    try {
+      const url = await generateCard({ name: name.trim(), photo: photo!, templateType })
+      setPreviewUrl(url)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
 
   const handleFile = useCallback((file: File) => {
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return
@@ -35,6 +35,7 @@ export default function CardGenerator({ templateType }: CardGeneratorProps) {
       return
     }
     setPhoto(file)
+    setPreviewUrl(null)
   }, [])
 
   const handleDrop = useCallback(
@@ -50,7 +51,7 @@ export default function CardGenerator({ templateType }: CardGeneratorProps) {
   const downloadCard = () => {
     if (!previewUrl) return
     const link = document.createElement('a')
-    link.download = `junetech-2026-${name.toLowerCase().replace(/\s+/g, '-')}.png`
+    link.download = `junetech-2026-${name.trim().toLowerCase().replace(/\s+/g, '-')}.png`
     link.href = previewUrl
     link.click()
   }
@@ -63,6 +64,7 @@ export default function CardGenerator({ templateType }: CardGeneratorProps) {
           <p className="text-gray-400 text-sm">Génère ta card JuneTech</p>
         </div>
 
+        {/* Photo upload */}
         <div
           className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
             isDragging
@@ -71,10 +73,7 @@ export default function CardGenerator({ templateType }: CardGeneratorProps) {
           }`}
           onClick={() => fileInputRef.current?.click()}
           onDrop={handleDrop}
-          onDragOver={(e) => {
-            e.preventDefault()
-            setIsDragging(true)
-          }}
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
           onDragLeave={() => setIsDragging(false)}
         >
           {photo ? (
@@ -97,62 +96,42 @@ export default function CardGenerator({ templateType }: CardGeneratorProps) {
           />
         </div>
 
+        {/* Name */}
         <div className="space-y-1">
           <label className="text-sm text-gray-400">Nom complet</label>
           <input
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => { setName(e.target.value); setPreviewUrl(null) }}
+            onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
             placeholder="Prénom Nom"
             className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-gray-500"
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm text-gray-400">Domaine</label>
-          <select
-            value={domain}
-            onChange={(e) => setDomain(e.target.value)}
-            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-gray-500"
-          >
-            <option value="">Sélectionne ton domaine</option>
-            {DOMAINS.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-          {domain === 'Autre' && (
-            <input
-              type="text"
-              value={customDomain}
-              onChange={(e) => setCustomDomain(e.target.value)}
-              placeholder="Précise ton domaine"
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-gray-500"
-            />
-          )}
-        </div>
+        {/* Generate button */}
+        <button
+          onClick={handleGenerate}
+          disabled={!canGenerate || isGenerating}
+          className="w-full bg-blue-600 text-white font-semibold rounded-xl py-4 hover:bg-blue-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {isGenerating ? 'Génération en cours…' : '▶ Générer ma card'}
+        </button>
 
-        {(previewUrl || isGenerating) && (
+        {/* Preview */}
+        {previewUrl && (
           <div className="space-y-3">
             <p className="text-sm text-gray-400">Prévisualisation</p>
-            {isGenerating ? (
-              <div className="aspect-square bg-gray-900 rounded-xl flex items-center justify-center">
-                <p className="text-gray-500 text-sm">Génération en cours…</p>
-              </div>
-            ) : (
-              previewUrl && (
-                <img
-                  src={previewUrl}
-                  alt="Prévisualisation de ta card"
-                  className="w-full rounded-xl"
-                />
-              )
-            )}
+            <img
+              src={previewUrl}
+              alt="Prévisualisation de ta card"
+              className="w-full rounded-xl"
+            />
           </div>
         )}
 
-        {previewUrl && !isGenerating && (
+        {/* Download */}
+        {previewUrl && (
           <button
             onClick={downloadCard}
             className="w-full bg-white text-gray-950 font-semibold rounded-xl py-4 hover:bg-gray-100 transition-colors"
