@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Upload, Download, Sparkles, ImageIcon } from 'lucide-react'
 import { generateCard } from '@/lib/generateCard'
 import s from './CardGenerator.module.css'
@@ -26,10 +26,15 @@ export default function CardGenerator({ templateType }: CardGeneratorProps) {
   const [error, setError] = useState<string | null>(null)
 
   const canGenerate = !!name.trim() && !!photo
+  const blobUrlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    return () => { if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current) }
+  }, [])
 
   const handleFile = useCallback((file: File) => {
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setError('Format non supporté — utilise JPG, PNG ou WEBP.')
+    if (!file.type.startsWith('image/')) {
+      setError('Format non supporté — utilise une image (JPG, PNG, WEBP…).')
       return
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -60,6 +65,8 @@ export default function CardGenerator({ templateType }: CardGeneratorProps) {
     setError(null)
     try {
       const url = await generateCard({ name: name.trim(), photo: photo!, templateType })
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
+      blobUrlRef.current = url
       setPreviewUrl(url)
     } catch (err) {
       setError(
@@ -163,7 +170,7 @@ export default function CardGenerator({ templateType }: CardGeneratorProps) {
                   {/* File input overlays the entire zone — works on all devices */}
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/*"
                     className={s.fileInput}
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
                   />

@@ -145,5 +145,16 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
     ctx.fillText(line, nameConf.x, startY + i * lineHeight)
   })
 
-  return canvas.toDataURL('image/png')
+  return new Promise<string>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('Génération échouée — mémoire insuffisante sur cet appareil'))
+          return
+        }
+        resolve(URL.createObjectURL(blob))
+      },
+      'image/png'
+    )
+  })
 }
