@@ -1,9 +1,18 @@
 import { TEMPLATES } from '@/config/templates'
 
+export type FontStyle = 'montserrat' | 'orbitron' | 'system'
+
 export interface GenerateCardParams {
   name: string
   photo: File
   templateType: 'attendee' | 'speaker' | 'volunteer' | 'staff'
+  fontStyle?: FontStyle
+}
+
+const FONT_FAMILIES: Record<FontStyle, string> = {
+  montserrat: "'Montserrat', 'Arial Black', Arial, sans-serif",
+  orbitron:   "'Orbitron', 'Arial Black', Arial, sans-serif",
+  system:     "'Arial Black', Impact, Arial, sans-serif",
 }
 
 export function centerCropParams(
@@ -93,8 +102,12 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
   const { name, photo, templateType } = params
   const config = TEMPLATES[templateType]
 
-  // Ensure Montserrat 800 is ready — loaded via CSS @import in CardGenerator.module.css
-  await ensureFont(`800 12px 'Montserrat'`)
+  const fontStyle: FontStyle = params.fontStyle ?? 'montserrat'
+  const fontFamily = FONT_FAMILIES[fontStyle]
+
+  // Ensure chosen font is ready before measuring/rendering
+  if (fontStyle === 'montserrat') await ensureFont(`800 12px 'Montserrat'`)
+  if (fontStyle === 'orbitron')   await ensureFont(`700 12px 'Orbitron'`)
 
   // Templates are same-origin — crossOrigin='anonymous' is not needed and
   // causes iOS Safari to enforce CORS headers that Vercel doesn't send for static files.
@@ -138,17 +151,17 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
 
   // Auto-fit font size so the name always fits in the band
   const nameConf = config.nameText
-  const BAND_HEIGHT = 122 // 80% of usable pill height (153px) — measured from 2048×2048 template
+  const BAND_HEIGHT = 138 // usable pill height with padding — allows 2 lines at ~57px
   const { fontSize, lines } = fitText(
     ctx,
     name,
-    nameConf.fontFamily,
+    fontFamily,
     nameConf.maxWidth,
     BAND_HEIGHT,
     nameConf.fontSize
   )
 
-  ctx.font = `800 ${fontSize}px ${nameConf.fontFamily}`
+  ctx.font = `800 ${fontSize}px ${fontFamily}`
   ctx.textAlign = nameConf.align
   ctx.textBaseline = 'middle'
 

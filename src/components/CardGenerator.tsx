@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Upload, Download, Sparkles, ImageIcon } from 'lucide-react'
-import { generateCard } from '@/lib/generateCard'
+import { generateCard, type FontStyle } from '@/lib/generateCard'
 import s from './CardGenerator.module.css'
 
 interface CardGeneratorProps {
@@ -24,6 +24,7 @@ export default function CardGenerator({ templateType }: CardGeneratorProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fontStyle, setFontStyle] = useState<FontStyle>('montserrat')
 
   const canGenerate = !!name.trim() && !!photo
   const cardBlobRef = useRef<string | null>(null)
@@ -70,7 +71,7 @@ export default function CardGenerator({ templateType }: CardGeneratorProps) {
     setIsGenerating(true)
     setError(null)
     try {
-      const url = await generateCard({ name: name.trim(), photo: photo!, templateType })
+      const url = await generateCard({ name: name.trim(), photo: photo!, templateType, fontStyle })
       if (cardBlobRef.current) URL.revokeObjectURL(cardBlobRef.current)
       cardBlobRef.current = url
       setPreviewUrl(url)
@@ -162,6 +163,28 @@ export default function CardGenerator({ templateType }: CardGeneratorProps) {
                   onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
                   placeholder="Prénom Nom"
                 />
+              </div>
+
+              {/* Font selector */}
+              <div>
+                <label className={s.label}>Police du nom</label>
+                <div className={s.fontSelector}>
+                  {([
+                    { key: 'montserrat', label: 'Modern', sub: 'Montserrat', font: 'Montserrat' },
+                    { key: 'orbitron',   label: 'Tech',   sub: 'Orbitron',   font: 'Orbitron'   },
+                    { key: 'system',     label: 'Classic', sub: 'Arial Black', font: 'Arial Black' },
+                  ] as const).map(({ key, label, sub, font }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={fontStyle === key ? s.fontBtnActive : s.fontBtn}
+                      onClick={() => { setFontStyle(key); setPreviewUrl(null) }}
+                    >
+                      <span style={{ fontFamily: font, fontWeight: 800, fontSize: 14, display: 'block' }}>{label}</span>
+                      <span style={{ fontSize: 10, opacity: 0.6 }}>{sub}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Photo upload */}

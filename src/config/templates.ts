@@ -33,16 +33,17 @@ export interface TemplateConfig {
 
 // All coordinates are in 2048×2048 space (pixel-scanned from resized templates)
 const SHARED_PHOTO_ZONE = { x: 685, y: 259, width: 888, height: 888, shape: 'circle' as const }
-// Name pill usable zone: x=670–1750 (dark deco covers outside), center=(1210,1241), height=153
+// Name pill usable zone: continuous white x=666–1567 at y=1241 (pixel-scanned)
+// Dark circuit decoration covers x=1568–2003. True center=(1117,1241), usable width=901.
 const SHARED_NAME_TEXT = {
-  x: 1210, y: 1241, fontSize: 80,
+  x: 1117, y: 1241, fontSize: 65,
   fontFamily: "'Montserrat', 'Arial Black', Arial, sans-serif", color: '#0D2547',
-  align: 'center' as CanvasTextAlign, maxWidth: 880,
+  align: 'center' as CanvasTextAlign, maxWidth: 820,
 }
 const SHARED_DOMAIN_TEXT = {
-  x: 1210, y: 1241, fontSize: 45,
+  x: 1117, y: 1241, fontSize: 40,
   fontFamily: "'Montserrat', Arial, sans-serif", color: '#4B5563',
-  align: 'center' as CanvasTextAlign, maxWidth: 900,
+  align: 'center' as CanvasTextAlign, maxWidth: 820,
 }
 
 export const TEMPLATES: Record<'attendee' | 'speaker' | 'volunteer' | 'staff', TemplateConfig> = {
