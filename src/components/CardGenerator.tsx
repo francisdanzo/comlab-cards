@@ -26,10 +26,14 @@ export default function CardGenerator({ templateType }: CardGeneratorProps) {
   const [error, setError] = useState<string | null>(null)
 
   const canGenerate = !!name.trim() && !!photo
-  const blobUrlRef = useRef<string | null>(null)
+  const cardBlobRef = useRef<string | null>(null)
+  const photoBlobRef = useRef<string | null>(null)
 
   useEffect(() => {
-    return () => { if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current) }
+    return () => {
+      if (cardBlobRef.current) URL.revokeObjectURL(cardBlobRef.current)
+      if (photoBlobRef.current) URL.revokeObjectURL(photoBlobRef.current)
+    }
   }, [])
 
   const handleFile = useCallback((file: File) => {
@@ -44,9 +48,11 @@ export default function CardGenerator({ templateType }: CardGeneratorProps) {
     setError(null)
     setPhoto(file)
     setPreviewUrl(null)
-    const reader = new FileReader()
-    reader.onloadend = () => setPhotoPreview(reader.result as string)
-    reader.readAsDataURL(file)
+    // createObjectURL is synchronous and works on all mobile browsers for <img> display
+    if (photoBlobRef.current) URL.revokeObjectURL(photoBlobRef.current)
+    const previewUrl = URL.createObjectURL(file)
+    photoBlobRef.current = previewUrl
+    setPhotoPreview(previewUrl)
   }, [])
 
   const handleDrop = useCallback(
@@ -65,8 +71,8 @@ export default function CardGenerator({ templateType }: CardGeneratorProps) {
     setError(null)
     try {
       const url = await generateCard({ name: name.trim(), photo: photo!, templateType })
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
-      blobUrlRef.current = url
+      if (cardBlobRef.current) URL.revokeObjectURL(cardBlobRef.current)
+      cardBlobRef.current = url
       setPreviewUrl(url)
     } catch (err) {
       setError(
