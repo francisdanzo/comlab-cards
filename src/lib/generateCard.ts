@@ -53,6 +53,15 @@ function loadImage(src: string, crossOrigin = false): Promise<HTMLImageElement> 
   })
 }
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error('Impossible de lire le fichier photo'))
+    reader.readAsDataURL(file)
+  })
+}
+
 // Shrinks fontSize until all wrapped lines fit within bandHeight and maxWidth.
 // Tries sizes from startSize down to minSize in steps of 4px.
 function fitText(
@@ -89,9 +98,9 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
   ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height)
 
   // Draw photo on top of the template, clipped to the photo zone shape
-  const photoUrl = URL.createObjectURL(photo)
-  const photoImg = await loadImage(photoUrl)
-  URL.revokeObjectURL(photoUrl)
+  // FileReader avoids blob URL failures on iOS Safari / Android WebView
+  const photoDataUrl = await fileToDataUrl(photo)
+  const photoImg = await loadImage(photoDataUrl)
 
   const { photoZone } = config
   const { sx, sy, sWidth, sHeight } = centerCropParams(
