@@ -86,12 +86,12 @@ function fitText(
   minSize = 55
 ): { fontSize: number; lines: string[] } {
   for (let size = startSize; size >= minSize; size -= 4) {
-    ctx.font = `bold ${size}px ${fontFamily}`
+    ctx.font = `800 ${size}px ${fontFamily}`
     const lines = wrapText((t) => ctx.measureText(t).width, text, maxWidth)
     const totalHeight = lines.length * size * 1.2
     if (totalHeight <= bandHeight) return { fontSize: size, lines }
   }
-  ctx.font = `bold ${minSize}px ${fontFamily}`
+  ctx.font = `800 ${minSize}px ${fontFamily}`
   const lines = wrapText((t) => ctx.measureText(t).width, text, maxWidth)
   return { fontSize: minSize, lines }
 }
@@ -100,11 +100,11 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
   const { name, photo, templateType } = params
   const config = TEMPLATES[templateType]
 
-  // Load Montserrat Bold so canvas text matches the template's typography
+  // Load Montserrat ExtraBold (800) for a heavier badge-style name text
   await loadGoogleFont(
     'Montserrat',
-    700,
-    'https://fonts.gstatic.com/s/montserrat/v29/JTUSjIg1_i6t8kCHKm459WlhyyTh89Y.woff2'
+    800,
+    'https://fonts.gstatic.com/s/montserrat/v29/JTUSjIg1_i6t8kCHKm459WdhyyTh89Y.woff2'
   )
 
   // Templates are same-origin — crossOrigin='anonymous' is not needed and
@@ -159,14 +159,22 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
     nameConf.fontSize
   )
 
-  ctx.font = `bold ${fontSize}px ${nameConf.fontFamily}`
-  ctx.fillStyle = nameConf.color
+  ctx.font = `800 ${fontSize}px ${nameConf.fontFamily}`
   ctx.textAlign = nameConf.align
   ctx.textBaseline = 'top'
 
   const lineHeight = fontSize * 1.2
   const totalHeight = lines.length * lineHeight
   const startY = nameConf.y - totalHeight / 2
+
+  // Stroke before fill — adds ~2px outline of same color to simulate extra-bold
+  ctx.strokeStyle = nameConf.color
+  ctx.lineWidth = fontSize * 0.04
+  ctx.lineJoin = 'round'
+  lines.forEach((line, i) => {
+    ctx.strokeText(line, nameConf.x, startY + i * lineHeight)
+  })
+  ctx.fillStyle = nameConf.color
   lines.forEach((line, i) => {
     ctx.fillText(line, nameConf.x, startY + i * lineHeight)
   })
