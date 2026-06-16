@@ -149,7 +149,7 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
 
   // Auto-fit font size so the name always fits in the band
   const nameConf = config.nameText
-  const BAND_HEIGHT = 174 // 80% of pill height (218px) — measured from 2048×2048 template
+  const BAND_HEIGHT = 122 // 80% of usable pill height (153px) — measured from 2048×2048 template
   const { fontSize, lines } = fitText(
     ctx,
     name,
@@ -161,22 +161,23 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
 
   ctx.font = `800 ${fontSize}px ${nameConf.fontFamily}`
   ctx.textAlign = nameConf.align
-  ctx.textBaseline = 'top'
+  ctx.textBaseline = 'middle'
 
   const lineHeight = fontSize * 1.2
+  // Center the block of lines around nameConf.y
   const totalHeight = lines.length * lineHeight
-  const startY = nameConf.y - totalHeight / 2
+  const blockTop = nameConf.y - totalHeight / 2 + lineHeight / 2
 
-  // Stroke before fill — adds ~2px outline of same color to simulate extra-bold
+  // Stroke before fill — thin outline of same color makes letters visually heavier
   ctx.strokeStyle = nameConf.color
   ctx.lineWidth = fontSize * 0.04
   ctx.lineJoin = 'round'
   lines.forEach((line, i) => {
-    ctx.strokeText(line, nameConf.x, startY + i * lineHeight)
+    ctx.strokeText(line, nameConf.x, blockTop + i * lineHeight)
   })
   ctx.fillStyle = nameConf.color
   lines.forEach((line, i) => {
-    ctx.fillText(line, nameConf.x, startY + i * lineHeight)
+    ctx.fillText(line, nameConf.x, blockTop + i * lineHeight)
   })
 
   // toBlob is more memory-efficient; fall back to toDataURL if unsupported or OOM
