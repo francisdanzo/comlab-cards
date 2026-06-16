@@ -43,6 +43,18 @@ export function wrapText(
   return lines
 }
 
+async function loadGoogleFont(family: string, weight: number, src: string): Promise<void> {
+  if (typeof document === 'undefined') return
+  if (document.fonts.check(`${weight} 12px '${family}'`)) return
+  try {
+    const face = new FontFace(family, `url(${src})`, { weight: String(weight) })
+    const loaded = await face.load()
+    document.fonts.add(loaded)
+  } catch {
+    // falls back to Arial
+  }
+}
+
 function loadImage(src: string, crossOrigin = false): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -88,6 +100,13 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
   const { name, photo, templateType } = params
   const config = TEMPLATES[templateType]
 
+  // Load Montserrat Bold so canvas text matches the template's typography
+  await loadGoogleFont(
+    'Montserrat',
+    700,
+    'https://fonts.gstatic.com/s/montserrat/v29/JTUSjIg1_i6t8kCHKm459WlhyyTh89Y.woff2'
+  )
+
   // Templates are same-origin — crossOrigin='anonymous' is not needed and
   // causes iOS Safari to enforce CORS headers that Vercel doesn't send for static files.
   const templateImg = await loadImage(config.templatePath)
@@ -130,7 +149,7 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
 
   // Auto-fit font size so the name always fits in the band
   const nameConf = config.nameText
-  const BAND_HEIGHT = 152 // 305px at 4096 → 152px at 2048
+  const BAND_HEIGHT = 174 // 80% of pill height (218px) — measured from 2048×2048 template
   const { fontSize, lines } = fitText(
     ctx,
     name,
