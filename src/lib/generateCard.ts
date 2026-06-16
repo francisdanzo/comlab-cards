@@ -84,28 +84,17 @@ function fitText(
   return { fontSize: minSize, lines }
 }
 
-// On mobile, reduce canvas size to avoid hitting iOS Safari's ~150MB memory limit.
-// 2048×2048 is still 4× higher than social media display resolution.
-function getOutputSize(): number {
-  if (typeof window === 'undefined') return 4096
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-  return isMobile ? 2048 : 4096
-}
-
 export async function generateCard(params: GenerateCardParams): Promise<string> {
   const { name, photo, templateType } = params
   const config = TEMPLATES[templateType]
 
-  // Templates are same-origin — no crossOrigin needed and setting it causes
-  // iOS Safari to enforce CORS headers that Vercel doesn't send for static files.
+  // Templates are same-origin — crossOrigin='anonymous' is not needed and
+  // causes iOS Safari to enforce CORS headers that Vercel doesn't send for static files.
   const templateImg = await loadImage(config.templatePath)
 
-  const outputSize = getOutputSize()
-  const scale = outputSize / config.canvasSize.width
-
   const canvas = document.createElement('canvas')
-  canvas.width = outputSize
-  canvas.height = outputSize
+  canvas.width = config.canvasSize.width
+  canvas.height = config.canvasSize.height
   const ctx = canvas.getContext('2d')!
 
   // Draw template first — it is fully opaque (no transparency in photo zone)
@@ -117,38 +106,38 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
   const photoImg = await loadImage(photoDataUrl)
 
   const { photoZone } = config
-  const pz = {
-    x: photoZone.x * scale,
-    y: photoZone.y * scale,
-    width: photoZone.width * scale,
-    height: photoZone.height * scale,
-  }
   const { sx, sy, sWidth, sHeight } = centerCropParams(
     photoImg.naturalWidth,
     photoImg.naturalHeight,
-    pz.width,
-    pz.height
+    photoZone.width,
+    photoZone.height
   )
 
   ctx.save()
   if (photoZone.shape === 'circle') {
     ctx.beginPath()
-    ctx.arc(pz.x + pz.width / 2, pz.y + pz.height / 2, pz.width / 2, 0, Math.PI * 2)
+    ctx.arc(
+      photoZone.x + photoZone.width / 2,
+      photoZone.y + photoZone.height / 2,
+      photoZone.width / 2,
+      0,
+      Math.PI * 2
+    )
     ctx.clip()
   }
-  ctx.drawImage(photoImg, sx, sy, sWidth, sHeight, pz.x, pz.y, pz.width, pz.height)
+  ctx.drawImage(photoImg, sx, sy, sWidth, sHeight, photoZone.x, photoZone.y, photoZone.width, photoZone.height)
   ctx.restore()
 
   // Auto-fit font size so the name always fits in the band
   const nameConf = config.nameText
-  const BAND_HEIGHT = 305 * scale
+  const BAND_HEIGHT = 152 // 305px at 4096 → 152px at 2048
   const { fontSize, lines } = fitText(
     ctx,
     name,
     nameConf.fontFamily,
-    nameConf.maxWidth * scale,
+    nameConf.maxWidth,
     BAND_HEIGHT,
-    nameConf.fontSize * scale
+    nameConf.fontSize
   )
 
   ctx.font = `bold ${fontSize}px ${nameConf.fontFamily}`
@@ -158,9 +147,9 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
 
   const lineHeight = fontSize * 1.2
   const totalHeight = lines.length * lineHeight
-  const startY = nameConf.y * scale - totalHeight / 2
+  const startY = nameConf.y - totalHeight / 2
   lines.forEach((line, i) => {
-    ctx.fillText(line, nameConf.x * scale, startY + i * lineHeight)
+    ctx.fillText(line, nameConf.x, startY + i * lineHeight)
   })
 
   // toBlob is more memory-efficient; fall back to toDataURL if unsupported or OOM
