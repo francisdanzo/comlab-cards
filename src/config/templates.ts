@@ -37,7 +37,7 @@ const SHARED_PHOTO_ZONE = { x: 685, y: 259, width: 888, height: 888, shape: 'cir
 const SHARED_NAME_TEXT = {
   x: 1210, y: 1241, fontSize: 80,
   fontFamily: "'Montserrat', 'Arial Black', Arial, sans-serif", color: '#0D2547',
-  align: 'center' as CanvasTextAlign, maxWidth: 980,
+  align: 'center' as CanvasTextAlign, maxWidth: 880,
 }
 const SHARED_DOMAIN_TEXT = {
   x: 1210, y: 1241, fontSize: 45,

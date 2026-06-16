@@ -43,16 +43,9 @@ export function wrapText(
   return lines
 }
 
-async function loadGoogleFont(family: string, weight: number, src: string): Promise<void> {
+async function ensureFont(spec: string): Promise<void> {
   if (typeof document === 'undefined') return
-  if (document.fonts.check(`${weight} 12px '${family}'`)) return
-  try {
-    const face = new FontFace(family, `url(${src})`, { weight: String(weight) })
-    const loaded = await face.load()
-    document.fonts.add(loaded)
-  } catch {
-    // falls back to Arial
-  }
+  try { await document.fonts.load(spec) } catch { /* falls back to system font */ }
 }
 
 function loadImage(src: string, crossOrigin = false): Promise<HTMLImageElement> {
@@ -100,12 +93,8 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
   const { name, photo, templateType } = params
   const config = TEMPLATES[templateType]
 
-  // Load Montserrat ExtraBold (800) for a heavier badge-style name text
-  await loadGoogleFont(
-    'Montserrat',
-    800,
-    'https://fonts.gstatic.com/s/montserrat/v29/JTUSjIg1_i6t8kCHKm459WdhyyTh89Y.woff2'
-  )
+  // Ensure Montserrat 800 is ready — loaded via CSS @import in CardGenerator.module.css
+  await ensureFont(`800 12px 'Montserrat'`)
 
   // Templates are same-origin — crossOrigin='anonymous' is not needed and
   // causes iOS Safari to enforce CORS headers that Vercel doesn't send for static files.
@@ -172,12 +161,11 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
   ctx.strokeStyle = nameConf.color
   ctx.lineWidth = fontSize * 0.04
   ctx.lineJoin = 'round'
-  lines.forEach((line, i) => {
-    ctx.strokeText(line, nameConf.x, blockTop + i * lineHeight)
-  })
   ctx.fillStyle = nameConf.color
   lines.forEach((line, i) => {
-    ctx.fillText(line, nameConf.x, blockTop + i * lineHeight)
+    const y = blockTop + i * lineHeight
+    ctx.strokeText(line, nameConf.x, y, nameConf.maxWidth)
+    ctx.fillText(line, nameConf.x, y, nameConf.maxWidth)
   })
 
   // toBlob is more memory-efficient; fall back to toDataURL if unsupported or OOM
