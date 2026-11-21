@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Upload, Download, Sparkles, ImageIcon, RefreshCw } from 'lucide-react'
+import { Upload, Sparkles, ImageIcon, RefreshCw, Expand } from 'lucide-react'
 import { exportCard, preloadTemplate, renderCard } from '@/lib/generateCard'
 import { coverCrop, type Crop } from '@/lib/crop'
 import { DEFAULT_FONT_KEY, NAME_COLORS, NAME_FONTS } from '@/config/fonts'
 import { TEMPLATES, type TemplateType } from '@/config/templates'
-import { DEFAULT_EXPORT_KEY, EXPORT_PRESETS, PREVIEW_EXPORT_KEY, encodeOrder, extensionOf, formatBytes, presetByKey } from '@/config/exports'
+import { PREVIEW_EXPORT_KEY, encodeOrder, extensionOf, presetByKey } from '@/config/exports'
 import PhotoCropper from './PhotoCropper'
+import CardResultModal from './CardResultModal'
 import s from './CardGenerator.module.css'
 
 interface CardGeneratorProps {
@@ -32,7 +33,7 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
   const [uppercase, setUppercase] = useState(false)
   const [card, setCard] = useState<HTMLCanvasElement | null>(null)
   const [exports, setExports] = useState<Record<string, ExportedFile>>({})
-  const [exportKey, setExportKey] = useState(DEFAULT_EXPORT_KEY)
+  const [isResultOpen, setIsResultOpen] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -113,6 +114,7 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
     invalidate()
     const generation = generationRef.current
     setIsGenerating(true)
+    setIsResultOpen(true)
     setError(null)
     try {
       const canvas = await renderCard({
@@ -138,6 +140,7 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
         setIsGenerating(false)
       }
     } catch (err) {
+      setIsResultOpen(false)
       setError(
         err instanceof Error
           ? `Erreur : ${err.message}`
@@ -148,16 +151,16 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
     }
   }
 
-  const selectedPreset = presetByKey(exportKey)
-  const selectedFile = exports[selectedPreset.key]
   const previewUrl = exports[PREVIEW_EXPORT_KEY]?.url ?? null
 
-  const downloadCard = () => {
-    if (!selectedFile) return
+  const downloadCard = (presetKey: string) => {
+    const preset = presetByKey(presetKey)
+    const file = exports[preset.key]
+    if (!file) return
     const slug = name.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-')
     const link = document.createElement('a')
-    link.download = `comlab-membre-${slug || 'card'}-${selectedPreset.key}.${extensionOf(selectedPreset)}`
-    link.href = selectedFile.url
+    link.download = `comlab-membre-${slug || 'card'}-${preset.key}.${extensionOf(preset)}`
+    link.href = file.url
     link.click()
   }
 
@@ -332,43 +335,12 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
             <div className={s.previewSection}>
               {previewUrl && card ? (
                 <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={previewUrl} alt="Visuel généré" className={s.previewImg} />
-
-                  <div className={s.exportBox}>
-                    <span className={s.label}>Qualité du téléchargement</span>
-                    <div className={s.exportList} role="radiogroup" aria-label="Qualité du téléchargement">
-                      {EXPORT_PRESETS.map((p) => {
-                        const file = exports[p.key]
-                        const side = p.size ?? card.width
-                        return (
-                          <button
-                            key={p.key}
-                            type="button"
-                            role="radio"
-                            aria-checked={exportKey === p.key}
-                            className={`${s.exportOption} ${exportKey === p.key ? s.exportOptionActive : ''}`}
-                            onClick={() => setExportKey(p.key)}
-                          >
-                            <span className={s.exportMain}>
-                              <span className={s.exportLabel}>{p.label}</span>
-                              <span className={s.exportDesc}>{p.description}</span>
-                            </span>
-                            <span className={s.exportMeta}>
-                              <span className={s.exportSize}>{file ? formatBytes(file.blob.size) : 'calcul…'}</span>
-                              <span className={s.exportDims}>{side}×{side}px</span>
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  <button className={s.btnSecondary} onClick={downloadCard} disabled={!selectedFile}>
-                    <Download size={18} strokeWidth={2} />
-                    {selectedFile
-                      ? `Télécharger · ${extensionOf(selectedPreset).toUpperCase()} · ${formatBytes(selectedFile.blob.size)}`
-                      : 'Préparation…'}
+                  <button type="button" className={s.previewOpen} onClick={() => setIsResultOpen(true)}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={previewUrl} alt="Visuel généré" className={s.previewImg} />
+                  </button>
+                  <button type="button" className={s.btnGhost} onClick={() => setIsResultOpen(true)}>
+                    <Expand size={16} /> Ouvrir et télécharger
                   </button>
                 </>
               ) : (
@@ -383,6 +355,15 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
             </div>
           </section>
         </div>
+
+        <CardResultModal
+          open={isResultOpen}
+          previewUrl={previewUrl}
+          cardSize={card?.width ?? null}
+          exports={exports}
+          onDownload={downloadCard}
+          onClose={() => setIsResultOpen(false)}
+        />
 
         <footer className={s.footer}>
           ComLab · Community Laboratory — Connecter · Collaborer · Apprendre · Saisir des opportunités

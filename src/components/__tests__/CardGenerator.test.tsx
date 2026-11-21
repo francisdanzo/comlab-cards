@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CardGenerator from '@/components/CardGenerator'
 import * as generateCardModule from '@/lib/generateCard'
@@ -82,22 +82,46 @@ describe('CardGenerator', () => {
     await waitFor(() => expect(mockGenerateCard).toHaveBeenCalledWith(expect.objectContaining({ fontKey: 'kaushan' })))
   })
 
-  it('lets the user pick the download quality and shows each file size', async () => {
+  it('opens the visual in an overlay, then shows quality choices with sizes on download', async () => {
     render(<CardGenerator />)
     fireEvent.change(screen.getByPlaceholderText('Prénom Nom'), { target: { value: 'Alice' } })
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, new File(['img'], 'photo.jpg', { type: 'image/jpeg' }))
     await userEvent.click(screen.getByRole('button', { name: /générer/i }))
 
-    // PNG is the default choice
-    expect(await screen.findByRole('button', { name: /télécharger · png · 6 mo/i })).toBeInTheDocument()
-    expect(screen.getAllByText('2508×2508px')).toHaveLength(3)
-    expect(screen.getByText('1080×1080px')).toBeInTheDocument()
-    expect(screen.getByText('300 Ko')).toBeInTheDocument()
+    const dialog = await screen.findByRole('dialog', { name: /ton visuel est prêt/i })
+    expect(within(dialog).getByAltText('Visuel généré')).toBeInTheDocument()
+    // Quality list is hidden until the user asks to download
+    expect(within(dialog).queryByText('1080×1080px')).not.toBeInTheDocument()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: /^télécharger$/i }))
+    expect(screen.getByRole('dialog', { name: /choisis la qualité/i })).toBeInTheDocument()
+    await waitFor(() => expect(within(dialog).queryByText('calcul…')).not.toBeInTheDocument())
+    expect(within(dialog).getByRole('button', { name: /png qualité maximale.*6 mo/i })).toBeInTheDocument()
+    expect(within(dialog).getAllByText('2508×2508px')).toHaveLength(3)
+    expect(within(dialog).getByText('1080×1080px')).toBeInTheDocument()
+    expect(within(dialog).getByText('300 Ko')).toBeInTheDocument()
     expect(mockExportCard).toHaveBeenCalledTimes(4)
 
-    await userEvent.click(screen.getByRole('radio', { name: /jpeg léger/i }))
-    expect(screen.getByRole('button', { name: /télécharger · jpg · 300 ko/i })).toBeInTheDocument()
+    const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    await userEvent.click(within(dialog).getByRole('button', { name: /jpeg léger/i }))
+    expect(click).toHaveBeenCalledTimes(1)
+    expect((click.mock.instances[0] as unknown as HTMLAnchorElement).download).toBe('comlab-membre-alice-jpeg-light.jpg')
+    click.mockRestore()
+  })
+
+  it('closes the overlay with Escape', async () => {
+    render(<CardGenerator />)
+    fireEvent.change(screen.getByPlaceholderText('Prénom Nom'), { target: { value: 'Alice' } })
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(input, new File(['img'], 'photo.jpg', { type: 'image/jpeg' }))
+    await userEvent.click(screen.getByRole('button', { name: /générer/i }))
+    await screen.findByRole('dialog')
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    // Can be reopened from the preview panel
+    await userEvent.click(screen.getByRole('button', { name: /ouvrir et télécharger/i }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
   it('shows download button only after generation', async () => {
@@ -112,8 +136,6 @@ describe('CardGenerator', () => {
     await userEvent.upload(input, file)
     await userEvent.click(screen.getByRole('button', { name: /générer/i }))
 
-    await waitFor(() => {
-      expect(screen.getByText(/télécharger/i)).toBeInTheDocument()
-    })
+    expect(await screen.findByRole('button', { name: /^télécharger$/i })).toBeInTheDocument()
   })
 })

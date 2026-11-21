@@ -11,7 +11,7 @@ Tout se passe dans le navigateur (canvas) : aucune image n'est envoyée sur un s
 - **12 polices** choisies pour le template (Montserrat italique façon « MEMBRE », Poppins, Exo 2, Rajdhani, Orbitron, Oswald, Bebas Neue, Comfortaa, Playfair Display, Kaushan Script, Pacifico…), avec un aperçu du nom dans chacune.
 - **4 couleurs** pour le nom (bleu nuit, bleu ComLab, rouge, noir) et une option MAJUSCULES.
 - Les noms longs passent sur 2 lignes ou rétrécissent automatiquement pour rester dans la pilule.
-- **Choix de la qualité au téléchargement**, avec la taille réelle de chaque fichier :
+- Le visuel généré s'ouvre en **superposition** ; le bouton « Télécharger » affiche alors le **choix de la qualité**, avec la taille réelle de chaque fichier :
   PNG sans perte (2508 px), JPEG haute qualité, JPEG standard, JPEG léger (1080 px).
   Le rendu part du template PNG d'origine, donc le PNG téléchargé est identique pixel pour pixel au template.
 - Avertissement si la photo est trop petite pour le cadrage choisi (risque de flou).
