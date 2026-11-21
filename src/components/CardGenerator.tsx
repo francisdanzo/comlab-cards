@@ -2,15 +2,21 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Upload, Download, Sparkles, ImageIcon, RefreshCw } from 'lucide-react'
-import { generateCard } from '@/lib/generateCard'
+import { exportCard, preloadTemplate, renderCard } from '@/lib/generateCard'
 import { coverCrop, type Crop } from '@/lib/crop'
 import { DEFAULT_FONT_KEY, NAME_COLORS, NAME_FONTS } from '@/config/fonts'
-import type { TemplateType } from '@/config/templates'
+import { TEMPLATES, type TemplateType } from '@/config/templates'
+import { DEFAULT_EXPORT_KEY, EXPORT_PRESETS, PREVIEW_EXPORT_KEY, encodeOrder, extensionOf, formatBytes, presetByKey } from '@/config/exports'
 import PhotoCropper from './PhotoCropper'
 import s from './CardGenerator.module.css'
 
 interface CardGeneratorProps {
   templateType?: TemplateType
+}
+
+interface ExportedFile {
+  blob: Blob
+  url: string
 }
 
 const ACCEPTED_TYPES = 'image/png,image/jpeg,image/webp,image/gif,image/avif,image/svg+xml'
@@ -24,24 +30,39 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
   const [fontKey, setFontKey] = useState(DEFAULT_FONT_KEY)
   const [color, setColor] = useState<string>(NAME_COLORS[0].value)
   const [uppercase, setUppercase] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [card, setCard] = useState<HTMLCanvasElement | null>(null)
+  const [exports, setExports] = useState<Record<string, ExportedFile>>({})
+  const [exportKey, setExportKey] = useState(DEFAULT_EXPORT_KEY)
   const [isDragging, setIsDragging] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const canGenerate = !!name.trim() && !!photo
-  const cardBlobRef = useRef<string | null>(null)
   const photoBlobRef = useRef<string | null>(null)
+  const exportsRef = useRef<Record<string, ExportedFile>>({})
+  // Bumped on every edit so encodes from a stale card are dropped
+  const generationRef = useRef(0)
+
+  const revokeExports = () => {
+    Object.values(exportsRef.current).forEach((f) => URL.revokeObjectURL(f.url))
+    exportsRef.current = {}
+  }
 
   useEffect(() => {
+    preloadTemplate(templateType).catch(() => { /* retried on generate */ })
     return () => {
-      if (cardBlobRef.current) URL.revokeObjectURL(cardBlobRef.current)
+      revokeExports()
       if (photoBlobRef.current) URL.revokeObjectURL(photoBlobRef.current)
     }
-  }, [])
+  }, [templateType])
 
   // Any edit invalidates the generated card
-  const invalidate = () => setPreviewUrl(null)
+  const invalidate = () => {
+    generationRef.current++
+    revokeExports()
+    setExports({})
+    setCard(null)
+  }
 
   const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -54,7 +75,7 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
     }
     setError(null)
     setPhoto(file)
-    setPreviewUrl(null)
+    invalidate()
     setImageSize(null)
     setCrop(null)
     if (photoBlobRef.current) URL.revokeObjectURL(photoBlobRef.current)
@@ -89,10 +110,12 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
 
   const handleGenerate = async () => {
     if (!canGenerate || isGenerating) return
+    invalidate()
+    const generation = generationRef.current
     setIsGenerating(true)
     setError(null)
     try {
-      const url = await generateCard({
+      const canvas = await renderCard({
         name: name.trim(),
         photo: photo!,
         templateType,
@@ -101,9 +124,19 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
         color,
         uppercase,
       })
-      if (cardBlobRef.current) URL.revokeObjectURL(cardBlobRef.current)
-      cardBlobRef.current = url
-      setPreviewUrl(url)
+      if (generation !== generationRef.current) return
+      setCard(canvas)
+
+      // Encode every preset one after another so each option shows its real size.
+      // The preview preset goes first so the card shows up quickly.
+      for (const preset of encodeOrder()) {
+        const blob = await exportCard(canvas, preset)
+        if (generation !== generationRef.current) return
+        const file = { blob, url: URL.createObjectURL(blob) }
+        exportsRef.current = { ...exportsRef.current, [preset.key]: file }
+        setExports(exportsRef.current)
+        setIsGenerating(false)
+      }
     } catch (err) {
       setError(
         err instanceof Error
@@ -111,18 +144,25 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
           : 'Échec de la génération. Vérifie ta connexion et réessaie.'
       )
     } finally {
-      setIsGenerating(false)
+      if (generation === generationRef.current) setIsGenerating(false)
     }
   }
 
+  const selectedPreset = presetByKey(exportKey)
+  const selectedFile = exports[selectedPreset.key]
+  const previewUrl = exports[PREVIEW_EXPORT_KEY]?.url ?? null
+
   const downloadCard = () => {
-    if (!previewUrl) return
-    const slug = name.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-')
+    if (!selectedFile) return
+    const slug = name.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-')
     const link = document.createElement('a')
-    link.download = `comlab-membre-${slug || 'card'}.jpg`
-    link.href = previewUrl
+    link.download = `comlab-membre-${slug || 'card'}-${selectedPreset.key}.${extensionOf(selectedPreset)}`
+    link.href = selectedFile.url
     link.click()
   }
+
+  // Source pixels per output pixel in the photo circle; below ~0.6 it looks soft
+  const lowRes = !!crop && crop.size / TEMPLATES[templateType].photoZone.size < 0.6
 
   const fileInput = (
     <input
@@ -180,6 +220,12 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
                 {photoPreview && imageSize && crop ? (
                   <>
                     <PhotoCropper src={photoPreview} imageSize={imageSize} crop={crop} onChange={handleCropChange} />
+                    {lowRes && (
+                      <p className={s.warning}>
+                        Image en basse résolution pour ce cadrage : le rendu risque d&apos;être flou.
+                        Dézoome un peu ou choisis une image plus grande.
+                      </p>
+                    )}
                     <label className={s.changeBtn}>
                       {fileInput}
                       <RefreshCw size={14} /> Changer d&apos;image
@@ -284,13 +330,45 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
             <h2 className={s.cardTitle}>Aperçu</h2>
 
             <div className={s.previewSection}>
-              {previewUrl ? (
+              {previewUrl && card ? (
                 <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={previewUrl} alt="Visuel généré" className={s.previewImg} />
-                  <button className={s.btnSecondary} onClick={downloadCard}>
+
+                  <div className={s.exportBox}>
+                    <span className={s.label}>Qualité du téléchargement</span>
+                    <div className={s.exportList} role="radiogroup" aria-label="Qualité du téléchargement">
+                      {EXPORT_PRESETS.map((p) => {
+                        const file = exports[p.key]
+                        const side = p.size ?? card.width
+                        return (
+                          <button
+                            key={p.key}
+                            type="button"
+                            role="radio"
+                            aria-checked={exportKey === p.key}
+                            className={`${s.exportOption} ${exportKey === p.key ? s.exportOptionActive : ''}`}
+                            onClick={() => setExportKey(p.key)}
+                          >
+                            <span className={s.exportMain}>
+                              <span className={s.exportLabel}>{p.label}</span>
+                              <span className={s.exportDesc}>{p.description}</span>
+                            </span>
+                            <span className={s.exportMeta}>
+                              <span className={s.exportSize}>{file ? formatBytes(file.blob.size) : 'calcul…'}</span>
+                              <span className={s.exportDims}>{side}×{side}px</span>
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <button className={s.btnSecondary} onClick={downloadCard} disabled={!selectedFile}>
                     <Download size={18} strokeWidth={2} />
-                    Télécharger mon visuel
+                    {selectedFile
+                      ? `Télécharger · ${extensionOf(selectedPreset).toUpperCase()} · ${formatBytes(selectedFile.blob.size)}`
+                      : 'Préparation…'}
                   </button>
                 </>
               ) : (

@@ -1,6 +1,7 @@
 import { TEMPLATES, type TemplateType } from '@/config/templates'
 import { cssFont, fontByKey, type NameFont } from '@/config/fonts'
 import { coverCrop, type Crop } from '@/lib/crop'
+import type { ExportPreset } from '@/config/exports'
 
 export interface GenerateCardParams {
   name: string
@@ -11,10 +12,6 @@ export interface GenerateCardParams {
   color?: string
   uppercase?: boolean
 }
-
-// JPEG keeps the 2508px card light enough to share from a phone
-const OUTPUT_TYPE = 'image/jpeg'
-const OUTPUT_QUALITY = 0.92
 
 export function wrapText(
   measureText: (text: string) => number,
@@ -83,7 +80,23 @@ function fitText(
   return { fontSize: minSize, lines }
 }
 
-export async function generateCard(params: GenerateCardParams): Promise<string> {
+// The template is large (lossless PNG) — start fetching it as soon as the
+// page opens so generation doesn't wait on the network.
+const templateCache = new Map<string, Promise<HTMLImageElement>>()
+
+export function preloadTemplate(templateType: TemplateType = 'membre'): Promise<HTMLImageElement> {
+  const path = TEMPLATES[templateType].templatePath
+  let pending = templateCache.get(path)
+  if (!pending) {
+    pending = loadImage(path)
+    pending.catch(() => templateCache.delete(path))
+    templateCache.set(path, pending)
+  }
+  return pending
+}
+
+// Draws the card at full template resolution; encode it with exportCard
+export async function renderCard(params: GenerateCardParams): Promise<HTMLCanvasElement> {
   const config = TEMPLATES[params.templateType ?? 'membre']
   const font = fontByKey(params.fontKey ?? '')
   const color = params.color ?? '#0B2A5B'
@@ -93,7 +106,7 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
 
   // Templates are same-origin — crossOrigin='anonymous' is not needed and
   // causes iOS Safari to enforce CORS headers that Vercel doesn't send for static files.
-  const templateImg = await loadImage(config.templatePath)
+  const templateImg = await preloadTemplate(params.templateType ?? 'membre')
 
   const canvas = document.createElement('canvas')
   canvas.width = config.canvasSize.width
@@ -148,19 +161,43 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
     ctx.fillText(line, nameConf.x, y, nameConf.maxWidth)
   })
 
-  // toBlob is more memory-efficient; fall back to toDataURL if unsupported or OOM
-  if (typeof canvas.toBlob === 'function') {
-    return new Promise<string>((resolve, reject) => {
-      canvas.toBlob(
-        (blob) => {
-          if (blob) { resolve(URL.createObjectURL(blob)); return }
-          try { resolve(canvas.toDataURL(OUTPUT_TYPE, OUTPUT_QUALITY)) }
-          catch { reject(new Error('Génération échouée — mémoire insuffisante')) }
-        },
-        OUTPUT_TYPE,
-        OUTPUT_QUALITY
-      )
-    })
+  return canvas
+}
+
+function dataUrlToBlob(dataUrl: string): Blob {
+  const [head, body] = dataUrl.split(',')
+  const type = head.match(/data:(.*?);/)?.[1] ?? 'image/png'
+  const bytes = atob(body)
+  const arr = new Uint8Array(bytes.length)
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i)
+  return new Blob([arr], { type })
+}
+
+export async function exportCard(source: HTMLCanvasElement, preset: ExportPreset): Promise<Blob> {
+  let canvas = source
+  if (preset.size && preset.size !== source.width) {
+    canvas = document.createElement('canvas')
+    canvas.width = preset.size
+    canvas.height = Math.round((source.height * preset.size) / source.width)
+    const ctx = canvas.getContext('2d')!
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(source, 0, 0, canvas.width, canvas.height)
   }
-  return canvas.toDataURL(OUTPUT_TYPE, OUTPUT_QUALITY)
+
+  const fallback = () => {
+    try { return dataUrlToBlob(canvas.toDataURL(preset.type, preset.quality)) }
+    catch { throw new Error('Export échoué — mémoire insuffisante') }
+  }
+  if (typeof canvas.toBlob !== 'function') return fallback()
+  // toBlob is more memory-efficient; it returns null on OOM in some browsers
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) { resolve(blob); return }
+        try { resolve(fallback()) } catch (e) { reject(e) }
+      },
+      preset.type,
+      preset.quality
+    )
+  })
 }

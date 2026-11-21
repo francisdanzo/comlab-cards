@@ -30,7 +30,7 @@ export type TemplateType = 'membre'
 
 export const TEMPLATES: Record<TemplateType, TemplateConfig> = {
   membre: {
-    templatePath: '/templates/membre.jpg',
+    templatePath: '/templates/membre.png',
     canvasSize: { width: 2508, height: 2508 },
     photoZone: { x: 1585 - 515, y: 845 - 515, size: 1030, background: '#FFFFFF' },
     nameText: {

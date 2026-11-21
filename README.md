@@ -11,6 +11,10 @@ Tout se passe dans le navigateur (canvas) : aucune image n'est envoyée sur un s
 - **12 polices** choisies pour le template (Montserrat italique façon « MEMBRE », Poppins, Exo 2, Rajdhani, Orbitron, Oswald, Bebas Neue, Comfortaa, Playfair Display, Kaushan Script, Pacifico…), avec un aperçu du nom dans chacune.
 - **4 couleurs** pour le nom (bleu nuit, bleu ComLab, rouge, noir) et une option MAJUSCULES.
 - Les noms longs passent sur 2 lignes ou rétrécissent automatiquement pour rester dans la pilule.
+- **Choix de la qualité au téléchargement**, avec la taille réelle de chaque fichier :
+  PNG sans perte (2508 px), JPEG haute qualité, JPEG standard, JPEG léger (1080 px).
+  Le rendu part du template PNG d'origine, donc le PNG téléchargé est identique pixel pour pixel au template.
+- Avertissement si la photo est trop petite pour le cadrage choisi (risque de flou).
 
 ## Développement
 
@@ -29,11 +33,12 @@ npm run build
 | Polices, couleurs | `src/config/fonts.ts` (ajouter la famille aussi dans `GOOGLE_FONTS_URL`) |
 | Logique de recadrage | `src/lib/crop.ts`, `src/components/PhotoCropper.tsx` |
 | Rendu canvas | `src/lib/generateCard.ts` |
+| Formats / qualités de téléchargement | `src/config/exports.ts` |
 
-`public/templates/membre.png` est le template source ; l'app utilise `membre.jpg` (même image, plus légère). Si tu changes le template, régénère le JPEG :
+`public/templates/membre.png` est le template utilisé pour le rendu. Si tu le remplaces, recompresse-le sans perte (même pixels, fichier plus léger) :
 
 ```bash
-node -e "require('sharp')('public/templates/membre.png').jpeg({quality:92,chromaSubsampling:'4:4:4',mozjpeg:true}).toFile('public/templates/membre.jpg')"
+node -e "require('sharp')('membre-source.png').png({compressionLevel:9,adaptiveFiltering:true,palette:false}).toFile('public/templates/membre.png')"
 ```
 
 ## Déploiement
