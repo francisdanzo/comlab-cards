@@ -21,15 +21,6 @@
   overflow-x: hidden;
 }
 
-.glow {
-  position: fixed;
-  inset: 0;
-  background-image: radial-gradient(rgba(140,200,255,0.10) 1px, transparent 1px);
-  background-size: 28px 28px;
-  pointer-events: none;
-  z-index: 0;
-}
-
 .inner {
   position: relative;
   z-index: 1;

@@ -137,8 +137,6 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
 
   return (
     <div className={s.bg}>
-      <div className={s.glow} />
-
       <div className={s.inner}>
         <header className={s.header}>
           <div className={s.logoPlate}>
