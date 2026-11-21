@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ComLab — Je suis membre
 
-## Getting Started
+Générateur de visuels « **Je suis membre de ComLab** » (Community Laboratory).
+Chaque membre ajoute sa photo ou son logo, la recadre lui-même, choisit une police pour son nom et télécharge un visuel 2508×2508 prêt à partager.
 
-First, run the development server:
+Tout se passe dans le navigateur (canvas) : aucune image n'est envoyée sur un serveur.
+
+## Fonctionnalités
+
+- **Recadrage libre** de la photo / du logo : glisser pour déplacer, molette, pincement ou curseur pour zoomer. En dézoomant au maximum, un logo s'affiche en entier sur fond blanc.
+- **12 polices** choisies pour le template (Montserrat italique façon « MEMBRE », Poppins, Exo 2, Rajdhani, Orbitron, Oswald, Bebas Neue, Comfortaa, Playfair Display, Kaushan Script, Pacifico…), avec un aperçu du nom dans chacune.
+- **4 couleurs** pour le nom (bleu nuit, bleu ComLab, rouge, noir) et une option MAJUSCULES.
+- Les noms longs passent sur 2 lignes ou rétrécissent automatiquement pour rester dans la pilule.
+
+## Développement
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev     # http://localhost:3000
+npm test        # tests Jest
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Personnalisation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Quoi | Où |
+| --- | --- |
+| Template et zones (cercle photo, pilule du nom) | `src/config/templates.ts` — coordonnées en pixels du template 2508×2508 |
+| Polices, couleurs | `src/config/fonts.ts` (ajouter la famille aussi dans `GOOGLE_FONTS_URL`) |
+| Logique de recadrage | `src/lib/crop.ts`, `src/components/PhotoCropper.tsx` |
+| Rendu canvas | `src/lib/generateCard.ts` |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`public/templates/membre.png` est le template source ; l'app utilise `membre.jpg` (même image, plus légère). Si tu changes le template, régénère le JPEG :
 
-## Learn More
+```bash
+node -e "require('sharp')('public/templates/membre.png').jpeg({quality:92,chromaSubsampling:'4:4:4',mozjpeg:true}).toFile('public/templates/membre.jpg')"
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Déploiement
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Projet Next.js 14, déployable tel quel sur Vercel.

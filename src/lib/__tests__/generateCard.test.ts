@@ -1,27 +1,4 @@
-import { centerCropParams, wrapText } from '@/lib/generateCard'
-
-describe('centerCropParams', () => {
-  it('returns full image when same aspect ratio', () => {
-    const result = centerCropParams(400, 400, 400, 400)
-    expect(result).toEqual({ sx: 0, sy: 0, sWidth: 400, sHeight: 400 })
-  })
-
-  it('crops width on wide image', () => {
-    const result = centerCropParams(800, 400, 400, 400)
-    expect(result.sy).toBe(0)
-    expect(result.sHeight).toBe(400)
-    expect(result.sWidth).toBe(400)
-    expect(result.sx).toBe(200)
-  })
-
-  it('crops height on tall image', () => {
-    const result = centerCropParams(400, 800, 400, 400)
-    expect(result.sx).toBe(0)
-    expect(result.sWidth).toBe(400)
-    expect(result.sHeight).toBe(400)
-    expect(result.sy).toBe(200)
-  })
-})
+import { wrapText } from '@/lib/generateCard'
 
 describe('wrapText', () => {
   const measureText = (text: string) => text.length * 10

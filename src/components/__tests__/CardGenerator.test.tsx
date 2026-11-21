@@ -16,20 +16,20 @@ describe('CardGenerator', () => {
   })
 
   it('renders form fields and generate button', () => {
-    render(<CardGenerator templateType="attendee" />)
+    render(<CardGenerator />)
     expect(screen.getByPlaceholderText('Prénom Nom')).toBeInTheDocument()
-    expect(screen.getByText(/glisse ta photo/i)).toBeInTheDocument()
-    expect(screen.getByText(/générer/i)).toBeInTheDocument()
+    expect(screen.getByText(/glisse ta photo ou ton logo/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /générer/i })).toBeInTheDocument()
   })
 
   it('generate button is disabled when fields are incomplete', () => {
-    render(<CardGenerator templateType="attendee" />)
-    const btn = screen.getByText(/générer/i).closest('button')!
+    render(<CardGenerator />)
+    const btn = screen.getByRole('button', { name: /générer/i })
     expect(btn).toBeDisabled()
   })
 
   it('does not call generateCard when button is not clicked', async () => {
-    render(<CardGenerator templateType="attendee" />)
+    render(<CardGenerator />)
     fireEvent.change(screen.getByPlaceholderText('Prénom Nom'), {
       target: { value: 'Alice' },
     })
@@ -41,19 +41,19 @@ describe('CardGenerator', () => {
   })
 
   it('calls generateCard when button is clicked with all fields filled', async () => {
-    render(<CardGenerator templateType="attendee" />)
+    render(<CardGenerator />)
     fireEvent.change(screen.getByPlaceholderText('Prénom Nom'), {
       target: { value: 'Alice' },
     })
     const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' })
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, file)
-    await userEvent.click(screen.getByText(/générer/i))
+    await userEvent.click(screen.getByRole('button', { name: /générer/i }))
     await waitFor(() => expect(mockGenerateCard).toHaveBeenCalledTimes(1))
   })
 
   it('rejects files larger than 10MB', async () => {
-    render(<CardGenerator templateType="attendee" />)
+    render(<CardGenerator />)
     const bigFile = new File(['x'], 'big.jpg', { type: 'image/jpeg' })
     Object.defineProperty(bigFile, 'size', { value: 11 * 1024 * 1024 })
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
@@ -61,8 +61,21 @@ describe('CardGenerator', () => {
     expect(await screen.findByText(/trop lourde/i)).toBeInTheDocument()
   })
 
+  it('offers a variety of fonts and passes the chosen one to generateCard', async () => {
+    render(<CardGenerator />)
+    const fonts = screen.getAllByRole('radio').filter((el) => el.tagName === 'BUTTON' && !el.getAttribute('aria-label'))
+    expect(fonts.length).toBeGreaterThanOrEqual(8)
+
+    fireEvent.change(screen.getByPlaceholderText('Prénom Nom'), { target: { value: 'Alice' } })
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(input, new File(['img'], 'photo.jpg', { type: 'image/jpeg' }))
+    await userEvent.click(screen.getByText('Signature'))
+    await userEvent.click(screen.getByRole('button', { name: /générer/i }))
+    await waitFor(() => expect(mockGenerateCard).toHaveBeenCalledWith(expect.objectContaining({ fontKey: 'kaushan' })))
+  })
+
   it('shows download button only after generation', async () => {
-    render(<CardGenerator templateType="speaker" />)
+    render(<CardGenerator />)
     expect(screen.queryByText(/télécharger/i)).not.toBeInTheDocument()
 
     fireEvent.change(screen.getByPlaceholderText('Prénom Nom'), {
@@ -71,7 +84,7 @@ describe('CardGenerator', () => {
     const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' })
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, file)
-    await userEvent.click(screen.getByText(/générer/i))
+    await userEvent.click(screen.getByRole('button', { name: /générer/i }))
 
     await waitFor(() => {
       expect(screen.getByText(/télécharger/i)).toBeInTheDocument()

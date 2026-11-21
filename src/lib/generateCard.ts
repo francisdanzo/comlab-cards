@@ -1,33 +1,20 @@
-import { TEMPLATES } from '@/config/templates'
-
-export type FontStyle = 'montserrat' | 'orbitron' | 'system'
+import { TEMPLATES, type TemplateType } from '@/config/templates'
+import { cssFont, fontByKey, type NameFont } from '@/config/fonts'
+import { coverCrop, type Crop } from '@/lib/crop'
 
 export interface GenerateCardParams {
   name: string
   photo: File
-  templateType: 'attendee' | 'speaker' | 'volunteer' | 'staff'
-  fontStyle?: FontStyle
+  templateType?: TemplateType
+  crop?: Crop
+  fontKey?: string
+  color?: string
+  uppercase?: boolean
 }
 
-const FONT_FAMILIES: Record<FontStyle, string> = {
-  montserrat: "'Montserrat', 'Arial Black', Arial, sans-serif",
-  orbitron:   "'Orbitron', 'Arial Black', Arial, sans-serif",
-  system:     "'Arial Black', Impact, Arial, sans-serif",
-}
-
-export function centerCropParams(
-  imgWidth: number,
-  imgHeight: number,
-  targetWidth: number,
-  targetHeight: number
-): { sx: number; sy: number; sWidth: number; sHeight: number } {
-  const scale = Math.max(targetWidth / imgWidth, targetHeight / imgHeight)
-  const sWidth = targetWidth / scale
-  const sHeight = targetHeight / scale
-  const sx = (imgWidth - sWidth) / 2
-  const sy = (imgHeight - sHeight) / 2
-  return { sx, sy, sWidth, sHeight }
-}
+// JPEG keeps the 2508px card light enough to share from a phone
+const OUTPUT_TYPE = 'image/jpeg'
+const OUTPUT_QUALITY = 0.92
 
 export function wrapText(
   measureText: (text: string) => number,
@@ -52,15 +39,14 @@ export function wrapText(
   return lines
 }
 
-async function ensureFont(spec: string): Promise<void> {
-  if (typeof document === 'undefined') return
-  try { await document.fonts.load(spec) } catch { /* falls back to system font */ }
+async function ensureFont(font: NameFont, sample: string): Promise<void> {
+  if (typeof document === 'undefined' || !document.fonts) return
+  try { await document.fonts.load(cssFont(font, 40), sample) } catch { /* falls back to system font */ }
 }
 
-function loadImage(src: string, crossOrigin = false): Promise<HTMLImageElement> {
+function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
-    if (crossOrigin) img.crossOrigin = 'anonymous'
     img.onload = () => resolve(img)
     img.onerror = () => reject(new Error(`Impossible de charger l'image : ${src}`))
     img.src = src
@@ -77,37 +63,33 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 // Shrinks fontSize until all wrapped lines fit within bandHeight and maxWidth.
-// Tries sizes from startSize down to minSize in steps of 4px.
 function fitText(
   ctx: CanvasRenderingContext2D,
   text: string,
-  fontFamily: string,
+  font: NameFont,
   maxWidth: number,
   bandHeight: number,
   startSize: number,
-  minSize = 55
+  minSize: number
 ): { fontSize: number; lines: string[] } {
   for (let size = startSize; size >= minSize; size -= 4) {
-    ctx.font = `800 ${size}px ${fontFamily}`
+    ctx.font = cssFont(font, size)
     const lines = wrapText((t) => ctx.measureText(t).width, text, maxWidth)
-    const totalHeight = lines.length * size * 1.2
-    if (totalHeight <= bandHeight) return { fontSize: size, lines }
+    const fitsWidth = lines.every((l) => ctx.measureText(l).width <= maxWidth)
+    if (fitsWidth && lines.length * size * 1.15 <= bandHeight) return { fontSize: size, lines }
   }
-  ctx.font = `800 ${minSize}px ${fontFamily}`
+  ctx.font = cssFont(font, minSize)
   const lines = wrapText((t) => ctx.measureText(t).width, text, maxWidth)
   return { fontSize: minSize, lines }
 }
 
 export async function generateCard(params: GenerateCardParams): Promise<string> {
-  const { name, photo, templateType } = params
-  const config = TEMPLATES[templateType]
+  const config = TEMPLATES[params.templateType ?? 'membre']
+  const font = fontByKey(params.fontKey ?? '')
+  const color = params.color ?? '#0B2A5B'
+  const name = params.uppercase ? params.name.toLocaleUpperCase('fr-FR') : params.name
 
-  const fontStyle: FontStyle = params.fontStyle ?? 'montserrat'
-  const fontFamily = FONT_FAMILIES[fontStyle]
-
-  // Ensure chosen font is ready before measuring/rendering
-  if (fontStyle === 'montserrat') await ensureFont(`800 12px 'Montserrat'`)
-  if (fontStyle === 'orbitron')   await ensureFont(`700 12px 'Orbitron'`)
+  await ensureFont(font, name)
 
   // Templates are same-origin — crossOrigin='anonymous' is not needed and
   // causes iOS Safari to enforce CORS headers that Vercel doesn't send for static files.
@@ -117,67 +99,52 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
   canvas.width = config.canvasSize.width
   canvas.height = config.canvasSize.height
   const ctx = canvas.getContext('2d')!
+  ctx.imageSmoothingQuality = 'high'
 
-  // Draw template first — it is fully opaque (no transparency in photo zone)
   ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height)
 
-  // Draw photo on top of the template, clipped to the photo zone shape
   // FileReader avoids blob URL failures on iOS Safari / Android WebView
-  const photoDataUrl = await fileToDataUrl(photo)
-  const photoImg = await loadImage(photoDataUrl)
+  const photoImg = await loadImage(await fileToDataUrl(params.photo))
+  const w = photoImg.naturalWidth
+  const h = photoImg.naturalHeight
+  const crop = params.crop ?? coverCrop(w, h)
 
-  const { photoZone } = config
-  const { sx, sy, sWidth, sHeight } = centerCropParams(
-    photoImg.naturalWidth,
-    photoImg.naturalHeight,
-    photoZone.width,
-    photoZone.height
-  )
+  // Map the user's crop window onto the photo circle
+  const { photoZone: zone } = config
+  const r = zone.size / 2
+  const scale = zone.size / crop.size
+  const dx = zone.x + r - crop.cx * scale
+  const dy = zone.y + r - crop.cy * scale
 
   ctx.save()
-  if (photoZone.shape === 'circle') {
-    ctx.beginPath()
-    ctx.arc(
-      photoZone.x + photoZone.width / 2,
-      photoZone.y + photoZone.height / 2,
-      photoZone.width / 2,
-      0,
-      Math.PI * 2
-    )
-    ctx.clip()
-  }
-  ctx.drawImage(photoImg, sx, sy, sWidth, sHeight, photoZone.x, photoZone.y, photoZone.width, photoZone.height)
+  ctx.beginPath()
+  ctx.arc(zone.x + r, zone.y + r, r, 0, Math.PI * 2)
+  ctx.clip()
+  // Background shows when the user zooms out (e.g. to fit a whole logo)
+  ctx.fillStyle = zone.background
+  ctx.fillRect(zone.x, zone.y, zone.size, zone.size)
+  ctx.drawImage(photoImg, dx, dy, w * scale, h * scale)
   ctx.restore()
 
-  // Auto-fit font size so the name always fits in the band
   const nameConf = config.nameText
-  const BAND_HEIGHT = 138 // usable pill height with padding — allows 2 lines at ~57px
   const { fontSize, lines } = fitText(
-    ctx,
-    name,
-    fontFamily,
-    nameConf.maxWidth,
-    BAND_HEIGHT,
-    nameConf.fontSize
+    ctx, name, font, nameConf.maxWidth, nameConf.bandHeight, nameConf.fontSize, nameConf.minFontSize
   )
 
-  ctx.font = `800 ${fontSize}px ${fontFamily}`
-  ctx.textAlign = nameConf.align
+  ctx.font = cssFont(font, fontSize)
+  ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 
-  const lineHeight = fontSize * 1.2
-  // Center the block of lines around nameConf.y
-  const totalHeight = lines.length * lineHeight
-  const blockTop = nameConf.y - totalHeight / 2 + lineHeight / 2
+  const lineHeight = fontSize * 1.15
+  const blockTop = nameConf.y - (lines.length * lineHeight) / 2 + lineHeight / 2
 
-  // Stroke before fill — thin outline of same color makes letters visually heavier
-  ctx.strokeStyle = nameConf.color
-  ctx.lineWidth = fontSize * 0.04
+  ctx.fillStyle = color
+  ctx.strokeStyle = color
+  ctx.lineWidth = fontSize * 0.03
   ctx.lineJoin = 'round'
-  ctx.fillStyle = nameConf.color
   lines.forEach((line, i) => {
     const y = blockTop + i * lineHeight
-    ctx.strokeText(line, nameConf.x, y, nameConf.maxWidth)
+    if (font.stroke) ctx.strokeText(line, nameConf.x, y, nameConf.maxWidth)
     ctx.fillText(line, nameConf.x, y, nameConf.maxWidth)
   })
 
@@ -187,13 +154,13 @@ export async function generateCard(params: GenerateCardParams): Promise<string> 
       canvas.toBlob(
         (blob) => {
           if (blob) { resolve(URL.createObjectURL(blob)); return }
-          // toBlob returned null — likely OOM; fall back to toDataURL
-          try { resolve(canvas.toDataURL('image/png')) }
+          try { resolve(canvas.toDataURL(OUTPUT_TYPE, OUTPUT_QUALITY)) }
           catch { reject(new Error('Génération échouée — mémoire insuffisante')) }
         },
-        'image/png'
+        OUTPUT_TYPE,
+        OUTPUT_QUALITY
       )
     })
   }
-  return canvas.toDataURL('image/png')
+  return canvas.toDataURL(OUTPUT_TYPE, OUTPUT_QUALITY)
 }

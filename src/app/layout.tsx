@@ -1,13 +1,22 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
+import { GOOGLE_FONTS_URL } from '@/config/fonts'
 import './globals.css'
 
+const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : 'http://localhost:3000'
+
 export const metadata: Metadata = {
-  title: 'JuneTech 2026 — Card Generator',
-  description: 'Génère ta card JuneTech 2026',
+  metadataBase: new URL(siteUrl),
+  title: 'ComLab — Je suis membre',
+  description: 'Crée ton visuel « Je suis membre de ComLab » avec ta photo ou ton logo, et partage-le.',
   icons: {
-    icon: '/favicon.ico',
     apple: '/apple-touch-icon.png',
   },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#0B2A5B',
 }
 
 export default function RootLayout({
@@ -17,6 +26,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link rel="stylesheet" href={GOOGLE_FONTS_URL} />
+      </head>
       <body>{children}</body>
     </html>
   )
