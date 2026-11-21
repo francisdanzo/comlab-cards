@@ -1,5 +1,10 @@
 import { TEMPLATES, type TemplateType } from '@/config/templates'
 import { cssFont, fontByKey, type NameFont } from '@/config/fonts'
+
+// Same face as the template's banner lettering
+const ROLE_FONT: NameFont = {
+  key: 'role', label: 'Rôle', family: 'Montserrat', weight: 800, style: 'italic', stroke: false,
+}
 import { coverCrop, type Crop } from '@/lib/crop'
 import type { ExportPreset } from '@/config/exports'
 
@@ -11,6 +16,8 @@ export interface GenerateCardParams {
   fontKey?: string
   color?: string
   uppercase?: boolean
+  // Written in the blue banner, always uppercase in the template's own font
+  role?: string
 }
 
 export function wrapText(
@@ -102,7 +109,9 @@ export async function renderCard(params: GenerateCardParams): Promise<HTMLCanvas
   const color = params.color ?? '#0B2A5B'
   const name = params.uppercase ? params.name.toLocaleUpperCase('fr-FR') : params.name
 
+  const role = params.role?.trim().toLocaleUpperCase('fr-FR') ?? ''
   await ensureFont(font, name)
+  if (role) await ensureFont(ROLE_FONT, role)
 
   // Templates are same-origin — crossOrigin='anonymous' is not needed and
   // causes iOS Safari to enforce CORS headers that Vercel doesn't send for static files.
@@ -160,6 +169,26 @@ export async function renderCard(params: GenerateCardParams): Promise<HTMLCanvas
     if (font.stroke) ctx.strokeText(line, nameConf.x, y, nameConf.maxWidth)
     ctx.fillText(line, nameConf.x, y, nameConf.maxWidth)
   })
+
+  if (role) {
+    const roleConf = config.roleText
+    const fit = fitText(ctx, role, ROLE_FONT, roleConf.maxWidth, roleConf.bandHeight, roleConf.fontSize, roleConf.minFontSize)
+    ctx.save()
+    ctx.font = cssFont(ROLE_FONT, fit.fontSize)
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#FFFFFF'
+    // Soft drop shadow like the original "MEMBRE" lettering
+    ctx.shadowColor = 'rgba(4, 20, 60, 0.45)'
+    ctx.shadowBlur = fit.fontSize * 0.12
+    ctx.shadowOffsetY = fit.fontSize * 0.05
+    const roleLineHeight = fit.fontSize * 1.1
+    const roleTop = roleConf.y - (fit.lines.length * roleLineHeight) / 2 + roleLineHeight / 2
+    fit.lines.forEach((line, i) => {
+      ctx.fillText(line, roleConf.x, roleTop + i * roleLineHeight, roleConf.maxWidth)
+    })
+    ctx.restore()
+  }
 
   return canvas
 }

@@ -6,6 +6,7 @@ import { exportCard, preloadTemplate, renderCard } from '@/lib/generateCard'
 import { coverCrop, type Crop } from '@/lib/crop'
 import { DEFAULT_FONT_KEY, NAME_COLORS, NAME_FONTS } from '@/config/fonts'
 import { TEMPLATES, type TemplateType } from '@/config/templates'
+import { ROLES, roleByKey } from '@/config/roles'
 import { PREVIEW_EXPORT_KEY, encodeOrder, extensionOf, presetByKey } from '@/config/exports'
 import PhotoCropper from './PhotoCropper'
 import CardResultModal from './CardResultModal'
@@ -24,6 +25,7 @@ const ACCEPTED_TYPES = 'image/png,image/jpeg,image/webp,image/gif,image/avif,ima
 
 export default function CardGenerator({ templateType = 'membre' }: CardGeneratorProps) {
   const [name, setName] = useState('')
+  const [roleKey, setRoleKey] = useState<string>('')
   const [photo, setPhoto] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [imageSize, setImageSize] = useState<{ w: number; h: number } | null>(null)
@@ -38,7 +40,8 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const canGenerate = !!name.trim() && !!photo
+  const role = roleByKey(roleKey)
+  const canGenerate = !!name.trim() && !!photo && !!role
   const photoBlobRef = useRef<string | null>(null)
   const exportsRef = useRef<Record<string, ExportedFile>>({})
   // Bumped on every edit so encodes from a stale card are dropped
@@ -125,6 +128,7 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
         fontKey,
         color,
         uppercase,
+        role: role?.label,
       })
       if (generation !== generationRef.current) return
       setCard(canvas)
@@ -215,6 +219,25 @@ export default function CardGenerator({ templateType = 'membre' }: CardGenerator
                   placeholder="Prénom Nom"
                   autoComplete="name"
                 />
+              </div>
+
+              {/* Role on the platform — replaces "MEMBRE" in the banner */}
+              <div>
+                <span className={s.label} id="role-label">Ton rôle sur ComLab</span>
+                <div className={s.roleGrid} role="radiogroup" aria-labelledby="role-label">
+                  {ROLES.map((r) => (
+                    <button
+                      key={r.key}
+                      type="button"
+                      role="radio"
+                      aria-checked={roleKey === r.key}
+                      className={`${s.roleBtn} ${roleKey === r.key ? s.roleBtnActive : ''}`}
+                      onClick={() => { setRoleKey(r.key); invalidate() }}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Photo / logo */}

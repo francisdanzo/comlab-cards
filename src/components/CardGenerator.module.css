@@ -641,3 +641,33 @@
 @media (prefers-reduced-motion: reduce) {
   .overlay, .modal { animation: none; }
 }
+
+/* Role picker */
+.roleGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.roleBtn {
+  padding: 9px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  background: rgba(0,0,0,0.22);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+.roleBtn:hover { border-color: rgba(56,182,240,0.6); }
+.roleBtn:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
+.roleBtnActive {
+  color: #fff;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  background: linear-gradient(135deg, #3FC1F5 0%, #1E88E5 100%);
+  border-color: transparent;
+  box-shadow: 0 4px 16px rgba(30,136,229,0.35);
+}

@@ -20,6 +20,15 @@ export interface TemplateConfig {
     maxWidth: number
     bandHeight: number
   }
+  // Blue banner where the member's role is written (word erased from the template)
+  roleText: {
+    x: number
+    y: number
+    fontSize: number
+    minFontSize: number
+    maxWidth: number
+    bandHeight: number
+  }
 }
 
 // All coordinates are in 2508×2508 space (pixel-scanned from membre.png)
@@ -30,13 +39,20 @@ export type TemplateType = 'membre'
 
 export const TEMPLATES: Record<TemplateType, TemplateConfig> = {
   membre: {
-    templatePath: '/templates/membre.png',
+    // membre-base.png = membre.png with "MEMBRE" erased (scripts/make-template-base.cjs)
+    templatePath: '/templates/membre-base.png',
     canvasSize: { width: 2508, height: 2508 },
     photoZone: { x: 1585 - 515, y: 845 - 515, size: 1030, background: '#FFFFFF' },
     nameText: {
       x: 1577, y: 1460,
       fontSize: 104, minFontSize: 56,
       maxWidth: 1130, bandHeight: 140,
+    },
+    // Erased box x=1170–1970, y=1608–1740; original word cap height ≈103px
+    roleText: {
+      x: 1570, y: 1674,
+      fontSize: 140, minFontSize: 52,
+      maxWidth: 780, bandHeight: 128,
     },
   },
 }

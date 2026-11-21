@@ -56,6 +56,7 @@ describe('CardGenerator', () => {
     const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' })
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, file)
+    await userEvent.click(screen.getByRole('radio', { name: 'Startup' }))
     await userEvent.click(screen.getByRole('button', { name: /générer/i }))
     await waitFor(() => expect(mockGenerateCard).toHaveBeenCalledTimes(1))
   })
@@ -78,6 +79,7 @@ describe('CardGenerator', () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, new File(['img'], 'photo.jpg', { type: 'image/jpeg' }))
     await userEvent.click(screen.getByText('Signature'))
+    await userEvent.click(screen.getByRole('radio', { name: 'Startup' }))
     await userEvent.click(screen.getByRole('button', { name: /générer/i }))
     await waitFor(() => expect(mockGenerateCard).toHaveBeenCalledWith(expect.objectContaining({ fontKey: 'kaushan' })))
   })
@@ -87,6 +89,7 @@ describe('CardGenerator', () => {
     fireEvent.change(screen.getByPlaceholderText('Prénom Nom'), { target: { value: 'Alice' } })
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, new File(['img'], 'photo.jpg', { type: 'image/jpeg' }))
+    await userEvent.click(screen.getByRole('radio', { name: 'Startup' }))
     await userEvent.click(screen.getByRole('button', { name: /générer/i }))
 
     const dialog = await screen.findByRole('dialog', { name: /ton visuel est prêt/i })
@@ -110,11 +113,31 @@ describe('CardGenerator', () => {
     click.mockRestore()
   })
 
+  it('requires a role and passes it to the renderer', async () => {
+    render(<CardGenerator />)
+    fireEvent.change(screen.getByPlaceholderText('Prénom Nom'), { target: { value: 'Alice' } })
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(input, new File(['img'], 'photo.jpg', { type: 'image/jpeg' }))
+    const btn = screen.getByRole('button', { name: /générer/i })
+    expect(btn).toBeDisabled()
+
+    for (const label of ['Startup', 'Talent', 'Company', 'Professionnel', 'Institution Académique', 'ONG', 'Institution Gouvernementale']) {
+      expect(screen.getByRole('radio', { name: label })).toBeInTheDocument()
+    }
+    await userEvent.click(screen.getByRole('radio', { name: 'Institution Gouvernementale' }))
+    expect(btn).toBeEnabled()
+    await userEvent.click(btn)
+    await waitFor(() =>
+      expect(mockGenerateCard).toHaveBeenCalledWith(expect.objectContaining({ role: 'Institution Gouvernementale' }))
+    )
+  })
+
   it('closes the overlay with Escape', async () => {
     render(<CardGenerator />)
     fireEvent.change(screen.getByPlaceholderText('Prénom Nom'), { target: { value: 'Alice' } })
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, new File(['img'], 'photo.jpg', { type: 'image/jpeg' }))
+    await userEvent.click(screen.getByRole('radio', { name: 'Startup' }))
     await userEvent.click(screen.getByRole('button', { name: /générer/i }))
     await screen.findByRole('dialog')
     await userEvent.keyboard('{Escape}')
@@ -134,6 +157,7 @@ describe('CardGenerator', () => {
     const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' })
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, file)
+    await userEvent.click(screen.getByRole('radio', { name: 'Startup' }))
     await userEvent.click(screen.getByRole('button', { name: /générer/i }))
 
     expect(await screen.findByRole('button', { name: /^télécharger$/i })).toBeInTheDocument()
